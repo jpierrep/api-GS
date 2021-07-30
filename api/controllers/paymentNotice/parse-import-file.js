@@ -38,56 +38,69 @@ module.exports = async (req, res) => {
     const sheetNameList = workbook.SheetNames;
     let data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]]);
 
+    const isValidItem = (item) => {
+      try {
+        if (item["CARGO/ABONO"] !== "A") {
+          throw new Error("No es abono");
+        }
+
+        const rut = new Rut(
+          item["DESCRIPCIÓN MOVIMIENTO"].replace(/[^\d-]/g, "")
+        );
+        if (!rut.isValid) {
+          throw new Error("Rut inválido");
+        }
+        const rutCleaned = rut.getCleanRut();
+        let client = clients.find((client) => client.identifier === rutCleaned);
+
+        if (client) {
+          throw new Error("Cliente ya existe");
+        }
+
+        return true;
+      } catch (error) {
+        console.log(error);
+        return false;
+      }
+    };
     let clientsCreated = await Client.createEach(
-      data
-        .filter((item) => {
-          const rut = new Rut(
-            item["DESCRIPCIÓN MOVIMIENTO"].replace(/[^\d-]/g, "")
-          );
-
-          if (!rut.isValid) {
-            return false;
-          }
-          const rutCleaned = rut.getCleanRut();
-          let client = clients.find(
-            (client) => client.identifier === rutCleaned
-          );
-
-          if (client) {
-            return false;
-          }
-
-          if (item["CARGO/ABONO"] !== "A") {
-            return false;
-          }
-
-          return true;
-        })
-        .reduce((clientsToCreate, item) => {
-          const rut = new Rut(
-            item["DESCRIPCIÓN MOVIMIENTO"].replace(/[^\d-]/g, "")
-          );
-
-          let client;
-          const rutCleaned = rut.getCleanRut();
-          client = clientsToCreate.find(
-            (client) => client.identifier === rutCleaned
-          );
-          if (!client) {
-            clientsToCreate.push({
-              identifier: rutCleaned,
-              name: item["DESCRIPCIÓN MOVIMIENTO"].replace(/[0-9]/g, "").trim(),
-            });
-          }
+      data.reduce((clientsToCreate, item) => {
+        if (!isValidItem(item)) {
           return clientsToCreate;
-        }, [])
+        }
+        const rut = new Rut(
+          item["DESCRIPCIÓN MOVIMIENTO"].replace(/[^\d-]/g, "")
+        );
+
+        let client;
+        const rutCleaned = rut.getCleanRut();
+        client = clientsToCreate.find(
+          (client) => client.identifier === rutCleaned
+        );
+        if (!client) {
+          clientsToCreate.push({
+            identifier: rutCleaned,
+            name: item["DESCRIPCIÓN MOVIMIENTO"].replace(/[0-9]/g, "").trim(),
+          });
+        }
+        return clientsToCreate;
+      }, [])
     ).fetch();
 
     clients = [...clients, ...clientsCreated];
 
     const dataProcess = await Promise.all(
       data
-        .filter((item) => item["CARGO/ABONO"] === "A")
+        .filter((item) => {
+          try {
+            if (item["CARGO/ABONO"] !== "A") {
+              throw new Error("No es abono");
+            }
+            return true;
+          } catch (error) {
+            return false;
+          }
+        })
         .map(async (item) => {
           const rut = new Rut(
             item["DESCRIPCIÓN MOVIMIENTO"].replace(/[^\d-]/g, "")

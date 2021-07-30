@@ -25,11 +25,30 @@ module.exports = {
     description: {
       type: "string",
     },
+    log: {
+      collection: "userlog",
+      via: "paymentNotice",
+    },
   },
   customToJSON: function () {
     if (this.payedAt) {
       this.payedAtLegible = moment(this.payedAt).format("DD/MM/YYYY");
     }
     return this;
+  },
+  afterCreate: function (created, next) {
+    try {
+      sails.helpers.paymentnotice
+        .customaftercreate(created)
+        .then((results) => {
+          next();
+        })
+        .catch((err) => {
+          sails.log(err);
+          next();
+        });
+    } catch (error) {
+      sails.log(error);
+    }
   },
 };
