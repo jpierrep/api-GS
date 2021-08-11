@@ -2,16 +2,13 @@
 const moment = require("moment");
 const XLSX = require("xlsx");
 const uuid = require("uuid");
-const Rut = require("rutjs");
+const { format, validate } = require("rut.js");
 module.exports = async (req, res) => {
   try {
-    let { fileData } = req.allParams();
+    let clients = await Client.find();
+    let clientsVigilancia = await ClientVigilancia.find();
+    clients = [...clients, ...clientsVigilancia];
 
-    let clients = await Client.find().populate("invoices", {
-      where: { status: "pending" },
-    });
-
-    const dirname = ".tmp/uploads/";
     const saveAs = uuid();
     let fileUploaded = await new Promise((res, rej) => {
       req.file("file").upload(
@@ -38,57 +35,6 @@ module.exports = async (req, res) => {
     const sheetNameList = workbook.SheetNames;
     let data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]]);
 
-    const isValidItem = (item) => {
-      try {
-        if (item["CARGO/ABONO"] !== "A") {
-          throw new Error("No es abono");
-        }
-
-        const rut = new Rut(
-          item["DESCRIPCIÓN MOVIMIENTO"].replace(/[^\d-]/g, "")
-        );
-        if (!rut.isValid) {
-          throw new Error("Rut inválido");
-        }
-        const rutCleaned = rut.getCleanRut();
-        let client = clients.find((client) => client.identifier === rutCleaned);
-
-        if (client) {
-          throw new Error("Cliente ya existe");
-        }
-
-        return true;
-      } catch (error) {
-        console.log(error);
-        return false;
-      }
-    };
-    let clientsCreated = await Client.createEach(
-      data.reduce((clientsToCreate, item) => {
-        if (!isValidItem(item)) {
-          return clientsToCreate;
-        }
-        const rut = new Rut(
-          item["DESCRIPCIÓN MOVIMIENTO"].replace(/[^\d-]/g, "")
-        );
-
-        let client;
-        const rutCleaned = rut.getCleanRut();
-        client = clientsToCreate.find(
-          (client) => client.identifier === rutCleaned
-        );
-        if (!client) {
-          clientsToCreate.push({
-            identifier: rutCleaned,
-            name: item["DESCRIPCIÓN MOVIMIENTO"].replace(/[0-9]/g, "").trim(),
-          });
-        }
-        return clientsToCreate;
-      }, [])
-    ).fetch();
-
-    clients = [...clients, ...clientsCreated];
-
     const dataProcess = await Promise.all(
       data
         .filter((item) => {
@@ -102,16 +48,46 @@ module.exports = async (req, res) => {
           }
         })
         .map(async (item) => {
-          const rut = new Rut(
-            item["DESCRIPCIÓN MOVIMIENTO"].replace(/[^\d-]/g, "")
-          );
-
+          // Buscar cliente de abono
           let client;
-          if (rut.isValid) {
-            const rutCleaned = rut.getCleanRut();
-            client = clients.find(
-              (client) => client.identifier === parseInt(rutCleaned, 10)
-            );
+          let rut = item["DESCRIPCIÓN MOVIMIENTO"]
+            .replace(/[^0\d-]/g, "")
+            .replace(/^0+/, "");
+          let rutFinded;
+          if (validate(rut)) {
+            rutFinded = format(rut).replace(/\./g, "");
+            client =
+              clients.find((client) => client.identifier === rutFinded) || {};
+          }
+
+          // Validar pagos existentes del mismo cliente y mismo monto
+          let paymentNoticeFinded = await PaymentNotice.find({
+            clientIdentifier: rutFinded,
+            amount: item["MONTO"],
+          });
+          if (paymentNoticeFinded && paymentNoticeFinded.length) {
+            return undefined;
+          }
+
+          if (client) {
+            try {
+              let query = `
+                          Select Id_documento as id, Tipo as type, Numero as identifier, Fecha as expiresAt, Codigo as clientServiceIdentifier, Rut as clientIdentifier, Nombre as clientName, Neto, Iva, Total as amount, Total - Abonado As pendingAmount 
+                          From Documentos 
+                          Where Total > Abonado And Rut = '${rutFinded}' And Tipo = 1 
+                          Order By Fecha, Numero;`;
+              let [invoices] = (
+                (await Invoice.getDatastore().sendNativeQuery(query)) || {}
+              ).recordsets;
+              client.invoices = invoices.map((invoiceItem) => ({
+                ...invoiceItem,
+                expiresAtLegible: moment(invoiceItem.expiresAt).format(
+                  "DD/MM/YYYY"
+                ),
+              }));
+            } catch (error) {
+              sails.log(error);
+            }
           }
 
           return {
@@ -124,7 +100,9 @@ module.exports = async (req, res) => {
           };
         })
     );
-    res.json(dataProcess.sort((a, b) => a.payedAt < b.payedAt));
+    res.json(
+      dataProcess.filter((item) => item).sort((a, b) => a.payedAt < b.payedAt)
+    );
   } catch (error) {
     res.serverError(error);
   }

@@ -9,7 +9,7 @@ const { format } = require("rut.js");
 module.exports = {
   datastore: "sqlServer",
   migrate: "safe",
-  tableName: "Clientes",
+  tableName: "Vigilancia",
   attributes: {
     id: { type: "number", columnName: "IdCliente" },
     identifier: { type: "string", columnName: "Rut" },

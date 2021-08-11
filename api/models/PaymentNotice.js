@@ -6,29 +6,47 @@
  */
 const moment = require("moment");
 module.exports = {
-  datastore: "mysqlServer",
-  migrate: "alter",
+  datastore: "sqlServer",
+  migrate: "safe",
   schema: true,
+  tableName: "DocPago",
   attributes: {
-    identifier: {
-      type: "string",
+    id: {
+      type: "number",
+      columnName: "Id_Pago",
+      required: true,
+      autoIncrement: true,
     },
     amount: {
       type: "number",
+      columnName: "Monto",
+    },
+    clientIdentifier: {
+      type: "string",
+      columnName: "Rut",
     },
     client: {
-      model: "client",
+      type: "string",
+      columnName: "Codigo",
+    },
+    code: {
+      type: "string",
+      columnName: "Numero",
     },
     payedAt: {
-      type: "number",
-    },
-    description: {
       type: "string",
+      columnName: "Fecha",
+      columnType: "datetime",
     },
+    /*     description: {
+      type: "string",
+    }, */
     log: {
       collection: "userlog",
       via: "paymentNotice",
     },
+    updatedAt: false,
+    createdAt: false,
   },
   customToJSON: function () {
     if (this.payedAt) {
