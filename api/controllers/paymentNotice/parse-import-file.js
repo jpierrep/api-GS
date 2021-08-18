@@ -50,14 +50,11 @@ module.exports = async (req, res) => {
         .map(async (item) => {
           // Buscar cliente de abono
           let client;
-          let rut = item["DESCRIPCIÓN MOVIMIENTO"]
-            .replace(/[^0\d-]/g, "")
-            .replace(/^0+/, "");
+          let [rut] = item["DESCRIPCIÓN MOVIMIENTO"].match(/[1-9]\w+/g) || [];
           let rutFinded;
           if (validate(rut)) {
             rutFinded = format(rut).replace(/\./g, "");
-            client =
-              clients.find((client) => client.identifier === rutFinded) || {};
+            client = clients.find((client) => client.identifier === rutFinded);
           }
 
           // Validar pagos existentes del mismo cliente y mismo monto
@@ -71,14 +68,10 @@ module.exports = async (req, res) => {
 
           if (client) {
             try {
-              let query = `
-                          Select Id_documento as id, Tipo as type, Numero as identifier, Fecha as expiresAt, Codigo as clientServiceIdentifier, Rut as clientIdentifier, Nombre as clientName, Neto, Iva, Total as amount, Total - Abonado As pendingAmount 
-                          From Documentos 
-                          Where Total > Abonado And Rut = '${rutFinded}' And Tipo = 1 
-                          Order By Fecha, Numero;`;
-              let [invoices] = (
-                (await Invoice.getDatastore().sendNativeQuery(query)) || {}
-              ).recordsets;
+              let invoices =
+                await sails.helpers.invoice.findpendingbyclientidentifier(
+                  rutFinded
+                );
               client.invoices = invoices.map((invoiceItem) => ({
                 ...invoiceItem,
                 expiresAtLegible: moment(invoiceItem.expiresAt).format(

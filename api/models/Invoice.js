@@ -36,7 +36,7 @@ module.exports = {
     },
     // 1 Factura
     type: {
-      type: "number",
+      type: "string",
       columnName: "Tipo",
     },
     amount: {

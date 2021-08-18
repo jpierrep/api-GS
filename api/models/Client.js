@@ -17,6 +17,10 @@ module.exports = {
       type: "string",
       columnName: "Nombre",
     },
+    enabled: {
+      type: "boolean",
+      columnName: "Vigencia",
+    },
     /*     invoices: {
       collection: "invoice",
       via: "client",
