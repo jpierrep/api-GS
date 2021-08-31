@@ -21,6 +21,11 @@ module.exports = {
       type: "boolean",
       columnName: "Vigencia",
     },
+    company: {
+      //model: "company",
+      type: "number",
+      columnName: "Empresa",
+    },
     /*     invoices: {
       collection: "invoice",
       via: "client",

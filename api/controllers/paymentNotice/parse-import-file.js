@@ -59,8 +59,15 @@ module.exports = async (req, res) => {
 
           // Validar pagos existentes del mismo cliente y mismo monto
           let paymentNoticeFinded = await PaymentNotice.find({
-            clientIdentifier: rutFinded,
-            amount: item["MONTO"],
+            or: [
+              {
+                identifier: item["N° DOCUMENTO"].toString(),
+              },
+              {
+                clientIdentifier: rutFinded,
+                amount: item["MONTO"],
+              },
+            ],
           });
           if (paymentNoticeFinded && paymentNoticeFinded.length) {
             return undefined;
@@ -68,23 +75,17 @@ module.exports = async (req, res) => {
 
           if (client) {
             try {
-              let invoices =
+              client.invoices =
                 await sails.helpers.invoice.findpendingbyclientidentifier(
                   rutFinded
                 );
-              client.invoices = invoices.map((invoiceItem) => ({
-                ...invoiceItem,
-                expiresAtLegible: moment(invoiceItem.expiresAt).format(
-                  "DD/MM/YYYY"
-                ),
-              }));
             } catch (error) {
               sails.log(error);
             }
           }
 
           return {
-            id: uuid(),
+            identifier: item["N° DOCUMENTO"].toString(),
             client: client,
             description: item["DESCRIPCIÓN MOVIMIENTO"],
             amount: item["MONTO"],

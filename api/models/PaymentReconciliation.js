@@ -8,7 +8,6 @@ const moment = require("moment");
 module.exports = {
   datastore: "sqlServer",
   migrate: "safe",
-  schema: true,
   tableName: "Enlaze",
   attributes: {
     id: {
@@ -28,6 +27,14 @@ module.exports = {
     amount: {
       type: "number",
       columnName: "Monto",
+    },
+    valid: {
+      type: "boolean",
+      columnName: "Vigente",
+    },
+    paymentType: {
+      type: "number",
+      columnName: "Tipo_Pago",
     },
     updatedAt: false,
     createdAt: false,

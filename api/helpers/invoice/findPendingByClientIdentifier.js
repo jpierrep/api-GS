@@ -1,3 +1,4 @@
+const moment = require("moment");
 const findPendingByClientIdentifier = {
   friendlyName: "Find Pending Invoices By Client Identifier (Rut)",
   description: "Find Pending Invoices By Client Identifier (Rut)",
@@ -19,7 +20,10 @@ const findPendingByClientIdentifier = {
       let [invoices] = (
         (await Invoice.getDatastore().sendNativeQuery(query)) || {}
       ).recordsets;
-      return invoices;
+      return invoices.map((invoiceItem) => ({
+        ...invoiceItem,
+        expiresAtLegible: moment(invoiceItem.expiresAt).format("DD/MM/YYYY"),
+      }));
     } catch (error) {
       sails.log(error);
       return false;
