@@ -113,4 +113,6 @@ module.exports.models = {
    ***************************************************************************/
 
   cascadeOnDestroy: false,
+
+  archiveModelIdentity: false,
 };
