@@ -46,10 +46,10 @@ module.exports = {
     /*     description: {
       type: "string",
     }, */
-    log: {
+    /* log: {
       collection: "userlog",
       via: "paymentNotice",
-    },
+    }, */
     /*     reconciliations: {
       collection: "paymentreconciliation",
       via: "payment",
