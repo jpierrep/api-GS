@@ -12,12 +12,7 @@ module.exports = async function (req, res) {
           saveAs,
           maxBytes: 30000000,
         },
-        (err, files) => {
-          if (err) {
-            return rej(err);
-          }
-          return res(files[0]);
-        }
+        (err, files) => (err ? rej(err) : res(files[0]))
       );
     });
 
@@ -25,15 +20,12 @@ module.exports = async function (req, res) {
       throw new Error("No se ha subido el archivo");
     }
 
-    let paths = {};
-    if (classFile === "Foto") {
-      paths = await sails.helpers.archive.generateThumbnails(dirname + saveAs);
-    }
+    let [extension] = fileUploaded.filename.match(/\.[0-9a-zA-Z]+$/) || [];
 
     let archiveCreated = await Archive.create({
       path: dirname + saveAs,
-      ...paths,
       filename: fileUploaded.filename,
+      extension: extension.toLowerCase(),
       size: fileUploaded.size,
       classFile,
       lastModified: lastModified
